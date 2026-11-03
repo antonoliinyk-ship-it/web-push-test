@@ -69,10 +69,19 @@
     // Feature detection (required before showing the button)
     const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 
+    let pluginReady = false;
+    let identified = false;
+
     async function refresh() {
+      if (!pluginReady) return;
       const sub = await cioanalytics.webPush.subscription();
-      status.textContent = sub ? 'Subscribed ✅' : 'Not subscribed (permission: ' + Notification.permission + ')';
-      enable.disabled = !!sub;
+      status.textContent = sub
+        ? 'Subscribed ✅'
+        : identified
+          ? 'Not subscribed (permission: ' + Notification.permission + ')'
+          : 'Identify first, then enable notifications.';
+      // "Enable" is available only after identification (and while not subscribed).
+      enable.disabled = !identified || !!sub;
       disable.disabled = !sub;
     }
 
@@ -86,6 +95,7 @@
         trackUrl: TRACK_URL
       }));
       log('Plugin registered');
+      pluginReady = true;
       await refresh();
     });
 
@@ -94,7 +104,9 @@
       const id = $('userId').value.trim();
       if (!id) return alert('Enter a user ID');
       await cioanalytics.identify(id, { email: $('email').value.trim() || undefined });
+      identified = true;
       log('Identified as ' + id);
+      await refresh();
     };
 
     // Safari: call subscribe() directly in the click handler, no await before it.
